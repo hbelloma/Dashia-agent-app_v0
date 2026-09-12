@@ -1,0 +1,11 @@
+{
+  "capital_inicial": 10000.0,
+  "capital_final": 10453.66,
+  "retorno_total_%": 4.54,
+  "operaciones": 3,
+  "ganadoras": 2,
+  "perdedoras": 1,
+  "win_rate_%": 66.67,
+  "ratio_ganancia_perdida": 1.56,
+  "max_drawdown_%": -2.02
+}
