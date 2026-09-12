@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Home, Sparkles, Cpu, TrendingUp, BarChart3, Wallet, Link2,
   ShieldCheck, Mic, Send, Play, Plus, CheckCircle2, Trophy, Lock,
+  AlertTriangle, X, Eye, EyeOff, Loader2, ChevronLeft,
+  GripVertical, ArrowUp, ArrowDown, Trash2,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
@@ -61,6 +63,34 @@ const STR = {
     side: "Lado", result: "Resultado", competitionSoon: "Competencia de agentes — próximamente",
     noWithdraw: "Solo trading, sin permiso de retiro", ipWhitelist: "Whitelist de IP activa",
     long: "Long", short: "Short",
+    phantomNotDetected: "No se detectó la extensión de Phantom en este navegador",
+    installPhantom: "Instalar Phantom", connecting: "Conectando…",
+    phantomRejected: "Conexión rechazada en Phantom", tryAgain: "Reintentar",
+    disconnect: "Desconectar", copyAddress: "Copiar dirección", copied: "¡Copiado!",
+    operationalWallet: "Wallet operativa de DASHIA",
+    operationalWalletDesc: "Deposita aquí un monto acotado para que el agente opere — tu wallet principal nunca entrega su llave privada.",
+    mobileNote: "Esto conecta la extensión de escritorio de Phantom. La app nativa usará el protocolo de deep link de Phantom para iOS/Android.",
+    addRule: "Agregar regla", rule: "Regla", addCondition: "Agregar condición",
+    when: "CUANDO", then: "ENTONCES", logicAnd: "Y (todas)", logicOr: "O (alguna)",
+    actionBuy: "Comprar", actionSell: "Vender", actionHold: "Esperar",
+    sizeSmall: "Pequeño (2%)", sizeDefault: "Normal (5%)", sizeLarge: "Grande (10%)",
+    codePreview: "Código generado", noRulesYet: "Aún no hay reglas — probá una plantilla o agregá la primera",
+    ruleOrderNote: "El orden importa: se aplica la primera regla que se cumpla",
+    templateOversold: "RSI sobrecomprado/sobrevendido",
+    indRsi: "RSI", indSma: "Media móvil (SMA)", indEma: "Media exponencial (EMA)",
+    indPrice: "Precio", indVolume: "Volumen", indTrend: "Tendencia", indPosition: "Posición actual",
+    selectExchange: "Elige tu exchange", apiKeyLabel: "API Key", apiSecretLabel: "API Secret",
+    testnetLabel: "Usar testnet (recomendado para probar)",
+    checklistTitle: "Antes de continuar, confirma en el dashboard del exchange:",
+    weexManualLabel: "Confirmo que revisé en el dashboard de Weex que esta key NO tiene permiso de retiro habilitado",
+    connectButton: "Conectar", verifying: "Verificando permisos…",
+    verifiedBadge: "Verificado", connectFailedTitle: "No se pudo verificar",
+    backButton: "Atrás", cancelButton: "Cancelar",
+    demoWarning: "Prototipo de diseño — no ingreses una API key real todavía. El backend que guarda esto cifrado de verdad aún no está desplegado.",
+    addAnother: "Conectar otro exchange", connectedAccounts: "Cuentas conectadas",
+    endsIn: "Termina en", noAutoVerify: "Sin verificación automática",
+    testnetBadge: "Testnet", liveBadge: "Real", disconnectConfirmTitle: "¿Desconectar esta cuenta?",
+    fillRequired: "Completa API Key y API Secret",
   },
   en: {
     appName: "Dashboard",
@@ -88,6 +118,34 @@ const STR = {
     side: "Side", result: "Result", competitionSoon: "Agent competition — coming soon",
     noWithdraw: "Trade-only, no withdrawal permission", ipWhitelist: "IP whitelist active",
     long: "Long", short: "Short",
+    phantomNotDetected: "Phantom extension not detected in this browser",
+    installPhantom: "Install Phantom", connecting: "Connecting…",
+    phantomRejected: "Connection rejected in Phantom", tryAgain: "Try again",
+    disconnect: "Disconnect", copyAddress: "Copy address", copied: "Copied!",
+    operationalWallet: "DASHIA operational wallet",
+    operationalWalletDesc: "Deposit a capped amount here for the agent to trade with — your main wallet never hands over its private key.",
+    mobileNote: "This connects Phantom's desktop extension. The native app will use Phantom's deep-link protocol for iOS/Android.",
+    addRule: "Add rule", rule: "Rule", addCondition: "Add condition",
+    when: "WHEN", then: "THEN", logicAnd: "AND (all)", logicOr: "OR (any)",
+    actionBuy: "Buy", actionSell: "Sell", actionHold: "Wait",
+    sizeSmall: "Small (2%)", sizeDefault: "Normal (5%)", sizeLarge: "Large (10%)",
+    codePreview: "Generated code", noRulesYet: "No rules yet — try a template or add your first one",
+    ruleOrderNote: "Order matters: the first matching rule applies",
+    templateOversold: "RSI overbought/oversold",
+    indRsi: "RSI", indSma: "Moving average (SMA)", indEma: "Exponential MA (EMA)",
+    indPrice: "Price", indVolume: "Volume", indTrend: "Trend", indPosition: "Current position",
+    selectExchange: "Choose your exchange", apiKeyLabel: "API Key", apiSecretLabel: "API Secret",
+    testnetLabel: "Use testnet (recommended for testing)",
+    checklistTitle: "Before continuing, confirm on the exchange dashboard:",
+    weexManualLabel: "I confirm I checked on the Weex dashboard that this key does NOT have withdrawal permission",
+    connectButton: "Connect", verifying: "Verifying permissions…",
+    verifiedBadge: "Verified", connectFailedTitle: "Couldn't verify",
+    backButton: "Back", cancelButton: "Cancel",
+    demoWarning: "Design prototype — don't enter a real API key yet. The backend that actually encrypts and stores this isn't deployed yet.",
+    addAnother: "Connect another exchange", connectedAccounts: "Connected accounts",
+    endsIn: "Ends in", noAutoVerify: "No automatic verification",
+    testnetBadge: "Testnet", liveBadge: "Live", disconnectConfirmTitle: "Disconnect this account?",
+    fillRequired: "Fill in API Key and API Secret",
   },
 };
 
@@ -342,9 +400,444 @@ function TopBar({ t, lang, setLang, conn }) {
 }
 
 /* ============================================================
+   PHANTOM — conexión real vía window.phantom.solana (no un mock)
+   Nota: esto es el patrón estándar de conexión web/desktop. Solo
+   funciona si la extensión de Phantom está instalada en el navegador
+   donde se ve este prototipo. La app nativa iOS/Android usará el
+   protocolo de deep link de Phantom en su lugar, que es distinto y
+   queda pendiente de construir aparte.
+   ============================================================ */
+function getPhantomProvider() {
+  if (typeof window === "undefined") return null;
+  const provider = window?.phantom?.solana;
+  return provider?.isPhantom ? provider : null;
+}
+
+function truncateAddress(addr) {
+  return addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "";
+}
+
+function usePhantom() {
+  const [available, setAvailable] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [publicKey, setPublicKey] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const provider = getPhantomProvider();
+    setAvailable(!!provider);
+    if (!provider) return;
+
+    const onConnect = (pk) => { setPublicKey(pk.toString()); setError(null); };
+    const onDisconnect = () => setPublicKey(null);
+    provider.on?.("connect", onConnect);
+    provider.on?.("disconnect", onDisconnect);
+
+    // Reconexión silenciosa si el usuario ya autorizó este sitio antes
+    provider.connect?.({ onlyIfTrusted: true })
+      .then((resp) => setPublicKey(resp.publicKey.toString()))
+      .catch(() => {});
+
+    return () => {
+      provider.removeListener?.("connect", onConnect);
+      provider.removeListener?.("disconnect", onDisconnect);
+    };
+  }, []);
+
+  async function connect() {
+    const provider = getPhantomProvider();
+    if (!provider) { setError("not-detected"); return; }
+    setConnecting(true);
+    setError(null);
+    try {
+      const resp = await provider.connect(); // abre el popup REAL de Phantom
+      setPublicKey(resp.publicKey.toString());
+    } catch (e) {
+      setError(e?.message?.includes("reject") ? "rejected" : (e?.message || "error"));
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function disconnect() {
+    const provider = getPhantomProvider();
+    try { await provider?.disconnect(); } catch (e) { /* noop */ }
+    setPublicKey(null);
+  }
+
+  return { available, connecting, publicKey, error, connect, disconnect };
+}
+
+/* Wallet operativa de ejemplo — en producción la genera el backend
+   (ver solana_connector/wallet.py) y es distinta por usuario/agente. */
+const EXAMPLE_OPERATIONAL_WALLET = "7xKXtg2CW3xkT7ZUyv3RnUfZBFxQNqQmYLZjXvj9pump";
+
+function PhantomPanel({ t, phantom }) {
+  const [copied, setCopied] = useState("");
+
+  function copy(text, key) {
+    try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ }
+    setCopied(key);
+    setTimeout(() => setCopied(""), 1500);
+  }
+
+  if (phantom.publicKey) {
+    return (
+      <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.up }} />
+            <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.text }}>
+              {truncateAddress(phantom.publicKey)}
+            </span>
+          </div>
+          <button onClick={() => copy(phantom.publicKey, "main")} style={{
+            background: "transparent", border: "none", color: C.textDim, cursor: "pointer",
+            fontFamily: FONT_UI, fontSize: 11,
+          }}>
+            {copied === "main" ? t.copied : t.copyAddress}
+          </button>
+        </div>
+
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+          <div style={{ fontFamily: FONT_UI, fontSize: 12, fontWeight: 600, color: C.text }}>
+            {t.operationalWallet}
+          </div>
+          <div style={{ fontFamily: FONT_UI, fontSize: 11, color: C.textDim, marginTop: 3, lineHeight: 1.4 }}>
+            {t.operationalWalletDesc}
+          </div>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: C.panelRaised, borderRadius: 9, padding: "7px 10px", marginTop: 8,
+          }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.violet }}>
+              {truncateAddress(EXAMPLE_OPERATIONAL_WALLET)}
+            </span>
+            <button onClick={() => copy(EXAMPLE_OPERATIONAL_WALLET, "op")} style={{
+              background: "transparent", border: "none", color: C.textDim, cursor: "pointer",
+              fontFamily: FONT_UI, fontSize: 11,
+            }}>
+              {copied === "op" ? t.copied : t.copyAddress}
+            </button>
+          </div>
+        </div>
+
+        <Button variant="ghost" onClick={phantom.disconnect}>{t.disconnect}</Button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {phantom.available ? (
+        <>
+          <Button icon={Wallet} full onClick={phantom.connect} disabled={phantom.connecting}>
+            {phantom.connecting ? t.connecting : t.connectWallet}
+          </Button>
+          {phantom.error && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontFamily: FONT_UI, fontSize: 11, color: C.down }}>
+                {phantom.error === "rejected" ? t.phantomRejected : phantom.error}
+              </span>
+              <button onClick={phantom.connect} style={{
+                background: "transparent", border: "none", color: C.violet, cursor: "pointer",
+                fontFamily: FONT_UI, fontSize: 11, fontWeight: 600,
+              }}>
+                {t.tryAgain}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div style={{ fontFamily: FONT_UI, fontSize: 12, color: C.textDim }}>{t.phantomNotDetected}</div>
+          <Button variant="ghost" icon={Wallet} full
+                  onClick={() => window.open("https://phantom.app/download", "_blank")}>
+            {t.installPhantom}
+          </Button>
+        </>
+      )}
+      <div style={{ fontFamily: FONT_UI, fontSize: 10, color: C.textFaint, lineHeight: 1.4 }}>
+        {t.mobileNote}
+      </div>
+    </Card>
+  );
+}
+
+/* ============================================================
+   BÓVEDA DE EXCHANGES — formulario real + window.storage
+   (equivalente en el navegador a credentials_vault del backend Python;
+   ver nota honesta sobre las diferencias en el propio componente)
+   ============================================================ */
+const EXCHANGE_INFO = {
+  binance: {
+    name: "Binance", accent: C.amber, autoVerify: true,
+    checklist: {
+      es: ["Habilitar \"Spot & Margin Trading\" y/o \"Futures\"", "NO habilitar \"Enable Withdrawals\"", "Activar whitelist de IP"],
+      en: ['Enable "Spot & Margin Trading" and/or "Futures"', 'Do NOT enable "Enable Withdrawals"', "Turn on IP whitelist"],
+    },
+  },
+  bybit: {
+    name: "Bybit", accent: "#F7A600", autoVerify: true,
+    checklist: {
+      es: ["Marcar \"Contract Trade\" y/o \"Spot Trade\"", "NO marcar \"Withdrawal\"", "Activar whitelist de IP"],
+      en: ['Check "Contract Trade" and/or "Spot Trade"', 'Do NOT check "Withdrawal"', "Turn on IP whitelist"],
+    },
+  },
+  weex: {
+    name: "Weex", accent: C.violet, autoVerify: false,
+    checklist: { es: [], en: [] },
+  },
+};
+
+function useExchangeConnections() {
+  const [connections, setConnections] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await window.storage.get("exchange_connections", false);
+        setConnections(result ? JSON.parse(result.value) : []);
+      } catch (e) {
+        setConnections([]);
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  async function persist(next) {
+    setConnections(next);
+    try {
+      await window.storage.set("exchange_connections", JSON.stringify(next), false);
+    } catch (e) { /* si falla el guardado persistente, se queda en memoria igual */ }
+  }
+
+  async function addConnection(conn) {
+    await persist([...connections.filter((c) => c.exchange !== conn.exchange), conn]);
+  }
+
+  async function removeConnection(exchange) {
+    await persist(connections.filter((c) => c.exchange !== exchange));
+  }
+
+  return { connections, loaded, addConnection, removeConnection };
+}
+
+function maskKey(key) {
+  return key.length > 4 ? key.slice(-4) : key;
+}
+
+function ExchangeConnectFlow({ t, lang, exchanges, onClose }) {
+  const [step, setStep] = useState("select");   // select | form | verifying | result
+  const [selected, setSelected] = useState(null);
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [testnet, setTestnet] = useState(true);
+  const [weexAck, setWeexAck] = useState(false);
+  const [error, setError] = useState("");
+  const [resultOk, setResultOk] = useState(true);
+
+  function pickExchange(id) {
+    setSelected(id);
+    setApiKey(""); setApiSecret(""); setWeexAck(false); setError("");
+    setStep("form");
+  }
+
+  async function submit() {
+    if (!apiKey.trim() || !apiSecret.trim()) { setError(t.fillRequired); return; }
+    const info = EXCHANGE_INFO[selected];
+    if (!info.autoVerify && !weexAck) { setError(t.weexManualLabel); return; }
+
+    setStep("verifying");
+    // Simulado: acá es donde, con el backend real desplegado, se llamaría a
+    // credentials_vault.connect_and_verify(). No hay backend vivo todavía —
+    // ver aviso en pantalla y en la respuesta del chat.
+    await new Promise((r) => setTimeout(r, 1200));
+
+    const verified = info.autoVerify ? true : weexAck;
+    await exchanges.addConnection({
+      exchange: selected, maskedKey: maskKey(apiKey.trim()), testnet,
+      verified, connectedAt: new Date().toISOString(),
+    });
+    setApiKey(""); setApiSecret("");  // el secreto nunca se guarda, ni "cifrado falso" en el cliente
+    setResultOk(true);
+    setStep("result");
+  }
+
+  const info = selected ? EXCHANGE_INFO[selected] : null;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(5,6,10,0.7)", zIndex: 50,
+      display: "flex", alignItems: "flex-end", justifyContent: "center",
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: "100%", maxWidth: 390, maxHeight: "88%", overflowY: "auto",
+        background: C.panel, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        border: `1px solid ${C.border}`, borderBottom: "none", padding: 20,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          {step === "form" ? (
+            <button onClick={() => setStep("select")} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              <ChevronLeft size={16} /> {t.backButton}
+            </button>
+          ) : <span />}
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {step === "select" && (
+          <>
+            <SectionLabel>{t.selectExchange}</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {Object.entries(EXCHANGE_INFO).map(([id, ex]) => {
+                const already = exchanges.connections.find((c) => c.exchange === id);
+                return (
+                  <button key={id} onClick={() => pickExchange(id)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    background: C.panelRaised, border: `1px solid ${C.border}`, borderRadius: 12,
+                    padding: "12px 14px", cursor: "pointer", textAlign: "left",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: ex.accent }} />
+                      <span style={{ fontFamily: FONT_UI, fontWeight: 700, fontSize: 13.5, color: C.text }}>{ex.name}</span>
+                    </div>
+                    {already ? <Pill tone={already.verified ? "up" : "amber"}>{already.verified ? t.verifiedBadge : t.connectFailedTitle}</Pill>
+                              : <span style={{ color: C.textFaint, fontSize: 12 }}>＋</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 16, padding: 10, background: "rgba(232,163,61,0.08)", border: `1px solid rgba(232,163,61,0.3)`, borderRadius: 10 }}>
+              <AlertTriangle size={14} color={C.amber} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontFamily: FONT_UI, fontSize: 10.5, color: C.textDim, lineHeight: 1.4 }}>{t.demoWarning}</span>
+            </div>
+          </>
+        )}
+
+        {step === "form" && info && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: info.accent }} />
+              <span style={{ fontFamily: FONT_UI, fontWeight: 700, fontSize: 15, color: C.text }}>{info.name}</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <div style={{ fontFamily: FONT_UI, fontSize: 11, color: C.textDim, marginBottom: 4 }}>{t.apiKeyLabel}</div>
+                <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} style={inputStyle} spellCheck={false} />
+              </div>
+              <div>
+                <div style={{ fontFamily: FONT_UI, fontSize: 11, color: C.textDim, marginBottom: 4 }}>{t.apiSecretLabel}</div>
+                <div style={{ position: "relative" }}>
+                  <input type={showSecret ? "text" : "password"} value={apiSecret}
+                         onChange={(e) => setApiSecret(e.target.value)}
+                         style={{ ...inputStyle, paddingRight: 36 }} spellCheck={false} />
+                  <button onClick={() => setShowSecret((s) => !s)} style={{
+                    position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", color: C.textFaint, cursor: "pointer",
+                  }}>
+                    {showSecret ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 4 }}>
+                <input type="checkbox" checked={testnet} onChange={(e) => setTestnet(e.target.checked)} />
+                <span style={{ fontFamily: FONT_UI, fontSize: 12, color: C.textDim }}>{t.testnetLabel}</span>
+              </label>
+
+              {info.autoVerify ? (
+                <div style={{ background: C.panelRaised, borderRadius: 10, padding: 12, marginTop: 4 }}>
+                  <div style={{ fontFamily: FONT_UI, fontSize: 11, fontWeight: 600, color: C.textDim, marginBottom: 6 }}>{t.checklistTitle}</div>
+                  {info.checklist[lang].map((item, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4 }}>
+                      <CheckCircle2 size={13} color={C.up} style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span style={{ fontFamily: FONT_UI, fontSize: 11.5, color: C.text }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <label style={{
+                  display: "flex", gap: 8, alignItems: "flex-start", cursor: "pointer", marginTop: 4,
+                  background: "rgba(139,124,246,0.08)", border: `1px solid rgba(139,124,246,0.3)`, borderRadius: 10, padding: 12,
+                }}>
+                  <input type="checkbox" checked={weexAck} onChange={(e) => setWeexAck(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span style={{ fontFamily: FONT_UI, fontSize: 11.5, color: C.text, lineHeight: 1.4 }}>{t.weexManualLabel}</span>
+                </label>
+              )}
+
+              {error && <div style={{ fontFamily: FONT_UI, fontSize: 11.5, color: C.down }}>{error}</div>}
+
+              <Button full onClick={submit}>{t.connectButton}</Button>
+            </div>
+          </>
+        )}
+
+        {step === "verifying" && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 0" }}>
+            <Loader2 size={28} color={C.violet} className="dashia-spin" />
+            <span style={{ fontFamily: FONT_UI, fontSize: 13, color: C.textDim, marginTop: 12 }}>{t.verifying}</span>
+          </div>
+        )}
+
+        {step === "result" && info && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 0", gap: 10 }}>
+            <CheckCircle2 size={36} color={C.up} />
+            <span style={{ fontFamily: FONT_UI, fontWeight: 700, fontSize: 15, color: C.text }}>{info.name} — {t.verifiedBadge}</span>
+            <Button variant="ghost" onClick={onClose}>{t.cancelButton}</Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConnectedExchangesPanel({ t, lang, exchanges }) {
+  const [flowOpen, setFlowOpen] = useState(false);
+  return (
+    <div>
+      {exchanges.connections.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+          {exchanges.connections.map((c) => {
+            const info = EXCHANGE_INFO[c.exchange];
+            return (
+              <Card key={c.exchange} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: info.accent }} />
+                  <div>
+                    <div style={{ fontFamily: FONT_UI, fontWeight: 700, fontSize: 12.5, color: C.text }}>{info.name}</div>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: C.textFaint }}>{t.endsIn} ••{c.maskedKey}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Pill tone={c.testnet ? "neutral" : "amber"}>{c.testnet ? t.testnetBadge : t.liveBadge}</Pill>
+                  <Pill tone={c.verified ? "up" : "neutral"}>{c.verified ? t.verifiedBadge : t.noAutoVerify}</Pill>
+                  <button onClick={() => exchanges.removeConnection(c.exchange)} style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      <Button variant="ghost" icon={Link2} full onClick={() => setFlowOpen(true)}>
+        {exchanges.connections.length > 0 ? t.addAnother : t.connectCex}
+      </Button>
+      {flowOpen && <ExchangeConnectFlow t={t} lang={lang} exchanges={exchanges} onClose={() => setFlowOpen(false)} />}
+    </div>
+  );
+}
+
+/* ============================================================
    DASHBOARD
    ============================================================ */
-function DashboardScreen({ t, conn, setConn, agents, market }) {
+function DashboardScreen({ t, lang, conn, agents, market, phantom, exchanges }) {
   return (
     <div style={{ padding: "4px 18px 18px", display: "flex", flexDirection: "column", gap: 18 }}>
       <Card style={{ background: `linear-gradient(155deg, ${C.panelRaised}, ${C.panel})` }}>
@@ -355,20 +848,9 @@ function DashboardScreen({ t, conn, setConn, agents, market }) {
         <div style={{ marginTop: 6 }}><Pill tone="up">▲ 2.34% (24h)</Pill></div>
       </Card>
 
-      {(!conn.cex || !conn.wallet) && (
-        <div style={{ display: "flex", gap: 10 }}>
-          {!conn.cex && (
-            <Button variant="ghost" icon={Link2} full onClick={() => setConn((c) => ({ ...c, cex: "Binance" }))}>
-              {t.connectCex}
-            </Button>
-          )}
-          {!conn.wallet && (
-            <Button variant="ghost" icon={Wallet} full onClick={() => setConn((c) => ({ ...c, wallet: "Phantom" }))}>
-              {t.connectWallet}
-            </Button>
-          )}
-        </div>
-      )}
+      <ConnectedExchangesPanel t={t} lang={lang} exchanges={exchanges} />
+
+      <PhantomPanel t={t} phantom={phantom} />
 
       <div>
         <SectionLabel>{t.liveMarket}</SectionLabel>
@@ -533,6 +1015,308 @@ function DashiaScreen({ t, lang, active, setActive, risk, setRisk }) {
 /* ============================================================
    AGENTES (crear agente propio)
    ============================================================ */
+/* ============================================================
+   CONSTRUCTOR VISUAL DE AGENTES — compila al MISMO DSL que valida
+   agent_sandbox/dsl_interpreter.py (whitelist sobre AST, sin eval/exec).
+   Lo que se arma acá con clics es texto plano; la seguridad real sigue
+   viviendo del lado del backend, esto solo evita tener que escribirlo
+   a mano.
+   ============================================================ */
+const INDICATOR_DEFS = [
+  { id: "rsi", labelKey: "indRsi", needsPeriod: true, kind: "number" },
+  { id: "sma", labelKey: "indSma", needsPeriod: true, kind: "number" },
+  { id: "ema", labelKey: "indEma", needsPeriod: true, kind: "number" },
+  { id: "price", labelKey: "indPrice", needsPeriod: false, kind: "number" },
+  { id: "volume", labelKey: "indVolume", needsPeriod: false, kind: "number" },
+  { id: "trend", labelKey: "indTrend", needsPeriod: false, kind: "string", values: ["up", "down", "flat"] },
+  { id: "position", labelKey: "indPosition", needsPeriod: false, kind: "string", values: ["none", "long", "short"] },
+];
+
+function describeCategoricalValue(indicatorId, value, lang) {
+  const dict = {
+    trend: { up: { es: "Alcista", en: "Up" }, down: { es: "Bajista", en: "Down" }, flat: { es: "Lateral", en: "Flat" } },
+    position: { none: { es: "Sin posición", en: "No position" }, long: { es: "Long", en: "Long" }, short: { es: "Short", en: "Short" } },
+  };
+  return dict[indicatorId]?.[value]?.[lang] || value;
+}
+
+let __uidCounter = 0;
+function uid() { return `id-${Date.now()}-${__uidCounter++}`; }
+
+function newCondition() {
+  return {
+    id: uid(), leftIndicator: "rsi", leftPeriod: 14, operator: "<",
+    rightMode: "number", rightNumber: 30, rightIndicator: "sma", rightPeriod: 50,
+    rightCategorical: "up",
+  };
+}
+function newRule() {
+  return { id: uid(), conditions: [newCondition()], logic: "and", action: { type: "buy", size: "default" } };
+}
+
+const RULE_TEMPLATES = {
+  oversold: () => [
+    { id: uid(), logic: "and", action: { type: "buy", size: "default" },
+      conditions: [{ id: uid(), leftIndicator: "rsi", leftPeriod: 14, operator: "<",
+                     rightMode: "number", rightNumber: 30, rightIndicator: "sma", rightPeriod: 50, rightCategorical: "up" }] },
+    { id: uid(), logic: "and", action: { type: "sell", size: "default" },
+      conditions: [{ id: uid(), leftIndicator: "rsi", leftPeriod: 14, operator: ">",
+                     rightMode: "number", rightNumber: 70, rightIndicator: "sma", rightPeriod: 50, rightCategorical: "up" }] },
+  ],
+};
+
+// Compila las reglas al DSL real — misma gramática que valida dsl_interpreter.py
+function operandText(indicatorId, period) {
+  const def = INDICATOR_DEFS.find((d) => d.id === indicatorId);
+  if (!def) return indicatorId;
+  return def.needsPeriod ? `${indicatorId}(${period})` : `${indicatorId}()`;
+}
+function conditionText(cond) {
+  const leftDef = INDICATOR_DEFS.find((d) => d.id === cond.leftIndicator);
+  const left = operandText(cond.leftIndicator, cond.leftPeriod);
+  let right;
+  if (leftDef && leftDef.kind === "string") right = `"${cond.rightCategorical}"`;
+  else if (cond.rightMode === "indicator") right = operandText(cond.rightIndicator, cond.rightPeriod);
+  else right = String(cond.rightNumber);
+  return `${left} ${cond.operator} ${right}`;
+}
+function ruleText(rule) {
+  const condsText = rule.conditions.map(conditionText).join(` ${rule.logic} `);
+  const action = rule.action.type === "hold" ? "hold()" : `${rule.action.type}(size=risk.${rule.action.size})`;
+  return `if ${condsText}:\n    ${action}`;
+}
+function compileRulesToDSL(rules) {
+  if (!rules.length) return "// Agrega al menos una regla para generar el código";
+  return rules.map(ruleText).join("\n\n");
+}
+
+const miniSelectStyle = {
+  background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8,
+  padding: "6px 8px", color: C.text, fontFamily: FONT_UI, fontSize: 11.5, outline: "none",
+};
+const iconBtnStyle = {
+  background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7,
+  width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+  color: C.textFaint, cursor: "pointer", flexShrink: 0,
+};
+const ghostSmallBtn = {
+  background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8,
+  padding: "6px 10px", color: C.textDim, fontFamily: FONT_UI, fontSize: 11, cursor: "pointer",
+};
+function microToggleStyle(active) {
+  return {
+    border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer",
+    background: active ? C.violet : "transparent", color: active ? "#120E30" : C.textFaint,
+    fontFamily: FONT_MONO, fontSize: 11, fontWeight: 700,
+  };
+}
+
+function ConditionRow({ cond, onChange, onRemove, lang, t }) {
+  const leftDef = INDICATOR_DEFS.find((d) => d.id === cond.leftIndicator);
+  const isCategorical = leftDef.kind === "string";
+  const ops = isCategorical ? ["==", "!="] : ["<", ">", "<=", ">=", "==", "!="];
+
+  return (
+    <div style={{ background: C.bg, border: `1px solid ${C.borderSoft}`, borderRadius: 10, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <select value={cond.leftIndicator} onChange={(e) => {
+          const newDef = INDICATOR_DEFS.find((d) => d.id === e.target.value);
+          onChange({
+            leftIndicator: e.target.value,
+            rightMode: newDef.kind === "string" ? "categorical" : "number",
+            rightCategorical: newDef.kind === "string" ? newDef.values[0] : cond.rightCategorical,
+            operator: newDef.kind === "string" ? "==" : cond.operator,
+          });
+        }} style={{ ...miniSelectStyle, flex: leftDef.needsPeriod ? 2 : 1 }}>
+          {INDICATOR_DEFS.map((d) => <option key={d.id} value={d.id}>{t[d.labelKey]}</option>)}
+        </select>
+        {leftDef.needsPeriod && (
+          <input type="number" min="1" value={cond.leftPeriod}
+                 onChange={(e) => onChange({ leftPeriod: Math.max(1, parseInt(e.target.value) || 1) })}
+                 style={{ ...miniSelectStyle, width: 52, textAlign: "center" }} />
+        )}
+        <button onClick={onRemove} style={iconBtnStyle}><Trash2 size={13} /></button>
+      </div>
+
+      <select value={cond.operator} onChange={(e) => onChange({ operator: e.target.value })} style={miniSelectStyle}>
+        {ops.map((op) => <option key={op} value={op}>{op}</option>)}
+      </select>
+
+      {isCategorical ? (
+        <select value={cond.rightCategorical} onChange={(e) => onChange({ rightCategorical: e.target.value })} style={miniSelectStyle}>
+          {leftDef.values.map((v) => <option key={v} value={v}>{describeCategoricalValue(leftDef.id, v, lang)}</option>)}
+        </select>
+      ) : (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ display: "flex", background: C.panel, borderRadius: 8, padding: 2, flexShrink: 0 }}>
+            <button onClick={() => onChange({ rightMode: "number" })} style={microToggleStyle(cond.rightMode === "number")}>#</button>
+            <button onClick={() => onChange({ rightMode: "indicator" })} style={microToggleStyle(cond.rightMode === "indicator")}>~</button>
+          </div>
+          {cond.rightMode === "number" ? (
+            <input type="number" value={cond.rightNumber}
+                   onChange={(e) => onChange({ rightNumber: parseFloat(e.target.value) || 0 })}
+                   style={{ ...miniSelectStyle, flex: 1 }} />
+          ) : (
+            <>
+              <select value={cond.rightIndicator} onChange={(e) => onChange({ rightIndicator: e.target.value })} style={{ ...miniSelectStyle, flex: 2 }}>
+                {INDICATOR_DEFS.filter((d) => d.kind === "number").map((d) => <option key={d.id} value={d.id}>{t[d.labelKey]}</option>)}
+              </select>
+              {INDICATOR_DEFS.find((d) => d.id === cond.rightIndicator)?.needsPeriod && (
+                <input type="number" min="1" value={cond.rightPeriod}
+                       onChange={(e) => onChange({ rightPeriod: Math.max(1, parseInt(e.target.value) || 1) })}
+                       style={{ ...miniSelectStyle, width: 52 }} />
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RuleCard({ rule, index, total, t, lang, onUpdate, onRemove, onMove, dragHandlers }) {
+  function updateCondition(condId, patch) {
+    onUpdate({ ...rule, conditions: rule.conditions.map((c) => (c.id === condId ? { ...c, ...patch } : c)) });
+  }
+  function addCondition() {
+    onUpdate({ ...rule, conditions: [...rule.conditions, newCondition()] });
+  }
+  function removeCondition(condId) {
+    onUpdate({ ...rule, conditions: rule.conditions.filter((c) => c.id !== condId) });
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={dragHandlers.onDragStart}
+      onDragOver={dragHandlers.onDragOver}
+      onDrop={dragHandlers.onDrop}
+      onDragEnd={dragHandlers.onDragEnd}
+      style={{
+        background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12,
+        opacity: dragHandlers.isDragging ? 0.4 : 1, transition: "opacity .15s ease",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "grab" }}>
+          <GripVertical size={14} color={C.textFaint} />
+          <span style={{ fontFamily: FONT_UI, fontWeight: 700, fontSize: 12.5, color: C.text }}>{t.rule} {index + 1}</span>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => onMove(-1)} disabled={index === 0} style={{ ...iconBtnStyle, opacity: index === 0 ? 0.3 : 1 }}><ArrowUp size={13} /></button>
+          <button onClick={() => onMove(1)} disabled={index === total - 1} style={{ ...iconBtnStyle, opacity: index === total - 1 ? 0.3 : 1 }}><ArrowDown size={13} /></button>
+          <button onClick={onRemove} style={iconBtnStyle}><Trash2 size={13} /></button>
+        </div>
+      </div>
+
+      <div style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: C.textFaint, marginBottom: 6, letterSpacing: 0.5 }}>{t.when}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {rule.conditions.map((cond) => (
+          <ConditionRow key={cond.id} cond={cond} lang={lang} t={t}
+                        onChange={(patch) => updateCondition(cond.id, patch)}
+                        onRemove={() => removeCondition(cond.id)} />
+        ))}
+      </div>
+
+      {rule.conditions.length > 1 && (
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <button onClick={() => onUpdate({ ...rule, logic: "and" })} style={toggleStyle(rule.logic === "and")}>{t.logicAnd}</button>
+          <button onClick={() => onUpdate({ ...rule, logic: "or" })} style={toggleStyle(rule.logic === "or")}>{t.logicOr}</button>
+        </div>
+      )}
+
+      <button onClick={addCondition} style={{ ...ghostSmallBtn, marginTop: 8 }}>+ {t.addCondition}</button>
+
+      <div style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: C.textFaint, margin: "12px 0 6px", letterSpacing: 0.5 }}>{t.then}</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <select value={rule.action.type} onChange={(e) => onUpdate({ ...rule, action: { ...rule.action, type: e.target.value } })} style={{ ...miniSelectStyle, flex: 1 }}>
+          <option value="buy">{t.actionBuy}</option>
+          <option value="sell">{t.actionSell}</option>
+          <option value="hold">{t.actionHold}</option>
+        </select>
+        {rule.action.type !== "hold" && (
+          <select value={rule.action.size} onChange={(e) => onUpdate({ ...rule, action: { ...rule.action, size: e.target.value } })} style={{ ...miniSelectStyle, flex: 1 }}>
+            <option value="small">{t.sizeSmall}</option>
+            <option value="default">{t.sizeDefault}</option>
+            <option value="large">{t.sizeLarge}</option>
+          </select>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VisualAgentBuilder({ rules, setRules, t, lang }) {
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
+
+  function updateRule(id, updated) { setRules(rules.map((r) => (r.id === id ? updated : r))); }
+  function removeRule(id) { setRules(rules.filter((r) => r.id !== id)); }
+  function moveRule(index, dir) {
+    const target = index + dir;
+    if (target < 0 || target >= rules.length) return;
+    const next = [...rules];
+    [next[index], next[target]] = [next[target], next[index]];
+    setRules(next);
+  }
+  function addRule() { setRules([...rules, newRule()]); }
+  function applyTemplate(key) { setRules(RULE_TEMPLATES[key]()); }
+
+  function handleDrop() {
+    if (dragIndex === null || overIndex === null || dragIndex === overIndex) {
+      setDragIndex(null); setOverIndex(null); return;
+    }
+    const next = [...rules];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(overIndex, 0, moved);
+    setRules(next);
+    setDragIndex(null); setOverIndex(null);
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {rules.length === 0 && (
+        <div style={{ border: `1px dashed ${C.border}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
+          <div style={{ fontFamily: FONT_UI, fontSize: 12, color: C.textFaint, marginBottom: 10 }}>{t.noRulesYet}</div>
+          <button onClick={() => applyTemplate("oversold")} style={ghostSmallBtn}>{t.templateOversold}</button>
+        </div>
+      )}
+
+      {rules.map((rule, i) => (
+        <RuleCard
+          key={rule.id} rule={rule} index={i} total={rules.length} t={t} lang={lang}
+          onUpdate={(updated) => updateRule(rule.id, updated)}
+          onRemove={() => removeRule(rule.id)}
+          onMove={(dir) => moveRule(i, dir)}
+          dragHandlers={{
+            isDragging: dragIndex === i,
+            onDragStart: () => setDragIndex(i),
+            onDragOver: (e) => { e.preventDefault(); setOverIndex(i); },
+            onDrop: handleDrop,
+            onDragEnd: () => { setDragIndex(null); setOverIndex(null); },
+          }}
+        />
+      ))}
+
+      {rules.length > 0 && (
+        <div style={{ fontFamily: FONT_UI, fontSize: 10, color: C.textFaint, textAlign: "center" }}>{t.ruleOrderNote}</div>
+      )}
+
+      <Button variant="ghost" icon={Plus} full onClick={addRule}>{t.addRule}</Button>
+
+      <div>
+        <div style={{ fontFamily: FONT_UI, fontSize: 11, color: C.textDim, marginBottom: 6 }}>{t.codePreview}</div>
+        <pre style={{
+          background: C.panelRaised, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10,
+          fontFamily: FONT_MONO, fontSize: 10.5, color: C.violet, overflowX: "auto", margin: 0, whiteSpace: "pre",
+        }}>
+          {compileRulesToDSL(rules)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 const CODE_PLACEHOLDER = `// Ejemplo simplificado — tu lógica va aquí
 if rsi(14) < 30 and trend == "up":
     buy(size = risk.default)
@@ -541,20 +1325,22 @@ if rsi(14) > 70:
     sell()
 `;
 
-function AgentsScreen({ t, agents, setAgents }) {
+function AgentsScreen({ t, lang, agents, setAgents }) {
   const [mode, setMode] = useState("code");
   const [name, setName] = useState("");
   const [asset, setAsset] = useState("BTC");
   const [venue, setVenue] = useState("Binance (CEX)");
   const [code, setCode] = useState(CODE_PLACEHOLDER);
+  const [rules, setRules] = useState([]);
 
   const customAgents = agents.filter((a) => !a.builtIn);
 
   function save() {
     if (!name.trim()) return;
+    const strategyCode = mode === "visual" ? compileRulesToDSL(rules) : code;
     setAgents((prev) => [...prev, {
       id: `custom-${Date.now()}`, name: name.trim(), builtIn: false, active: false,
-      pnlPct: 0, trades: 0, winRate: 0, venue, risk: "COOK",
+      pnlPct: 0, trades: 0, winRate: 0, venue, risk: "COOK", strategyCode,
     }]);
     setName("");
   }
@@ -606,12 +1392,7 @@ function AgentsScreen({ t, agents, setAgents }) {
               }}
             />
           ) : (
-            <div style={{
-              border: `1px dashed ${C.border}`, borderRadius: 10, padding: 16,
-              fontFamily: FONT_UI, fontSize: 12, color: C.textFaint, textAlign: "center",
-            }}>
-              {t.visualMode} — drag & drop de condiciones (próxima iteración del prototipo)
-            </div>
+            <VisualAgentBuilder rules={rules} setRules={setRules} t={t} lang={lang} />
           )}
 
           <Button icon={Plus} full onClick={save}>{t.saveAgent}</Button>
@@ -841,7 +1622,9 @@ export default function App() {
   const [lang, setLang] = useState("es");
   const t = useMemo(() => STR[lang], [lang]);
   const [tab, setTab] = useState("dash");
-  const [conn, setConn] = useState({ cex: null, wallet: null });
+  const exchanges = useExchangeConnections();
+  const phantom = usePhantom();
+  const conn = { cex: exchanges.connections.some((c) => c.verified), wallet: phantom.publicKey };
   const [agents, setAgents] = useState(AGENTS_SEED);
   const [dashiaActive, setDashiaActive] = useState(true);
   const [risk, setRisk] = useState("WALK");
@@ -875,6 +1658,8 @@ export default function App() {
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
         @keyframes dashiaPulse { 0% { transform: scale(0.9); opacity: 0.55; } 100% { transform: scale(1.35); opacity: 0; } }
+        @keyframes dashiaSpin { to { transform: rotate(360deg); } }
+        .dashia-spin { animation: dashiaSpin 0.9s linear infinite; }
       `}</style>
 
       <div style={{
@@ -888,14 +1673,14 @@ export default function App() {
         {(conn.cex || conn.wallet) && (
           <div style={{ display: "flex", gap: 6, padding: "0 18px 8px", flexWrap: "wrap" }}>
             {conn.cex && <Pill tone="up"><ShieldCheck size={11} />&nbsp;{t.noWithdraw}</Pill>}
-            {conn.wallet && <Pill tone="violet"><Lock size={11} />&nbsp;Phantom {t.connected}</Pill>}
+            {conn.wallet && <Pill tone="violet"><Lock size={11} />&nbsp;{truncateAddress(conn.wallet)}</Pill>}
           </div>
         )}
 
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {tab === "dash" && <DashboardScreen t={t} conn={conn} setConn={setConn} agents={agents} market={market} />}
+          {tab === "dash" && <DashboardScreen t={t} lang={lang} conn={conn} agents={agents} market={market} phantom={phantom} exchanges={exchanges} />}
           {tab === "dashia" && <DashiaScreen t={t} lang={lang} active={dashiaActive} setActive={setDashiaActive} risk={risk} setRisk={setRisk} />}
-          {tab === "agents" && <AgentsScreen t={t} agents={agents} setAgents={setAgents} />}
+          {tab === "agents" && <AgentsScreen t={t} lang={lang} agents={agents} setAgents={setAgents} />}
           {tab === "backtest" && <BacktestScreen t={t} />}
           {tab === "stats" && <StatsScreen t={t} />}
         </div>
